@@ -1,8 +1,9 @@
-package bgu.spl.mics;
+package src.test.java.bgu.spl.mics;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.Queue;
 import org.junit.jupiter.api.Test;
+import src.main.java.bgu.spl.mics.application.objects.*;
 
 
 

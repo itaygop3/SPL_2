@@ -1,4 +1,4 @@
-package bgu.spl.mics.application.objects;
+package src.main.java.bgu.spl.mics.application.objects;
 
 /**
  * Passive object representing a data used by a model.
@@ -9,9 +9,10 @@ public class DataBatch {
 	
 	private Data data;
 	private int start_index;
+	private int timeTicks = 0;
 	
 	public DataBatch(Data data, int startIndex) {
-		data = data;
+		this.data = data;
 		start_index = startIndex;
 	}
 	
@@ -21,5 +22,12 @@ public class DataBatch {
 	
 	public int getIndex() {
 		return start_index;
+	}
+	public int getTimeTicks() {
+		return timeTicks;
+	}
+	
+	public void incrementTimeTicks() {
+		timeTicks++;
 	}
 }

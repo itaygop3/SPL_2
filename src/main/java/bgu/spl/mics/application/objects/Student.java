@@ -1,4 +1,4 @@
-package bgu.spl.mics.application.objects;
+package src.main.java.bgu.spl.mics.application.objects;
 
 /**
  * Passive object representing single student.

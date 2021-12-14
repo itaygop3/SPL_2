@@ -1,4 +1,5 @@
-package bgu.spl.mics.application.objects;
+package src.main.java.bgu.spl.mics.application.objects;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Queue;
@@ -10,122 +11,13 @@ import java.util.Queue;
 public class CPU {
 	
 	private int cores;
-	private Queue<DataBatch> data;
+	private Collection<DataBatch> data;
 	private Cluster cluster;
 	private boolean isFree = true;
 	
 	public CPU(int cores, Cluster cluster) {
 		cores = cores;
-		data = new Queue<DataBatch>() {
-			
-			@Override
-			public <T> T[] toArray(T[] arg0) {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public Object[] toArray() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public int size() {
-				// TODO Auto-generated method stub
-				return 0;
-			}
-			
-			@Override
-			public boolean retainAll(Collection<?> arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public boolean removeAll(Collection<?> arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public boolean remove(Object arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public Iterator<DataBatch> iterator() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public boolean isEmpty() {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public boolean containsAll(Collection<?> arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public boolean contains(Object arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public void clear() {
-				// TODO Auto-generated method stub
-				
-			}
-			
-			@Override
-			public boolean addAll(Collection<? extends DataBatch> arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public DataBatch remove() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public DataBatch poll() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public DataBatch peek() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public boolean offer(DataBatch arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-			
-			@Override
-			public DataBatch element() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-			@Override
-			public boolean add(DataBatch arg0) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-		};
+		data = new ArrayList<DataBatch>();
 		cluster = cluster;
 	}
 	

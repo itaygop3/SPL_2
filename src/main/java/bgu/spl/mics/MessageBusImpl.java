@@ -4,9 +4,8 @@ package src.main.java.bgu.spl.mics;
 
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Collections;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.*;
 
 /**
  * The {@link MessageBusImpl class is the implementation of the MessageBus interface.
@@ -16,21 +15,13 @@ import java.util.Collections;
 public class MessageBusImpl implements MessageBus {
 	
 	private static MessageBusImpl msgBus = new MessageBusImpl();
-	
-	private ConcurrentHashMap<MicroService, LinkedList<Message>> mcroSrvcQs;
-	private int size;
-	private ConcurrentHashMap <Event<?> ,Future<?>> eventsFutures;
-	private ConcurrentHashMap<Class<? extends Message>, List<MicroService>> subscribeLog;
+	private HashMap<MicroService,MicroData> registered = new HashMap<>();
+	private int size = 0;
+	private ConcurrentHashMap <Event<?> ,Future<?>> eventsFutures = new ConcurrentHashMap<>();
+	private ConcurrentHashMap<Class<? extends Message>, List<MicroService>> subscribeLog = new ConcurrentHashMap<>();
 	private Object lock1 = new Object();
 	private Object lock2 = new Object();
 
-	
-	private MessageBusImpl() {
-		mcroSrvcQs = new ConcurrentHashMap<MicroService, LinkedList<Message>>();
-		size = 0;
-		eventsFutures = new ConcurrentHashMap<Event<?>, Future<?>>();
-		subscribeLog = new ConcurrentHashMap<Class<? extends Message>, List<MicroService>>();
-	}
 	
 	public static MessageBusImpl getInstance() {
 		return msgBus;
@@ -41,18 +32,14 @@ public class MessageBusImpl implements MessageBus {
 	}
 	
 	public <T> boolean isSubscribedToEvent(Class<? extends Event<T>> type, MicroService m) {
-		List<MicroService> tmp = subscribeLog.get(type);
-		if(tmp==null)
-			return false;
-		return tmp.contains(m);
+		return registered.get(m).subscribedTo.contains(type);
 	}
 	public boolean isSubscribedToBroadcast(Class<? extends Broadcast> type, MicroService m) {
-		List<MicroService> tmp = subscribeLog.get(type);
-		return tmp.contains(m);
+		return registered.get(m).subscribedTo.contains(type);
 	}
 	
 	public boolean isInMsgBus(MicroService m) {
-		return mcroSrvcQs.containsKey(m);
+		return registered.containsKey(m);
 	}
 
 	@Override
@@ -62,6 +49,7 @@ public class MessageBusImpl implements MessageBus {
 		if(subscribeLog.containsKey(type)) {
 			List<MicroService> tmp = subscribeLog.get(type);
 			tmp.add(m);
+			registered.get(m).subscribedTo.add(type);
 		}
 		else subscribeMessage(type, m, lock1);
 	}
@@ -73,6 +61,7 @@ public class MessageBusImpl implements MessageBus {
 		if(subscribeLog.containsKey(type)) {
 			List<MicroService> tmp = subscribeLog.get(type);
 			tmp.add(m);
+			registered.get(m).subscribedTo.add(type);
 		}
 		else subscribeMessage(type, m, lock2);
 	}
@@ -84,6 +73,7 @@ public class MessageBusImpl implements MessageBus {
 				List<MicroService> tmp = Collections.synchronizedList(new LinkedList<MicroService>());
 				tmp.add(m);
 				subscribeLog.put(type,tmp);
+				registered.get(m).subscribedTo.add(type);
 			}
 			else flag = true;
 		}
@@ -108,7 +98,7 @@ public class MessageBusImpl implements MessageBus {
 		List<MicroService> subscribed = subscribeLog.get(b.getClass());
 		synchronized(subscribed) {
 			for(MicroService m : subscribed)
-				mcroSrvcQs.get(m).add(b);
+				registered.get(m).messeges.add(b);
 		}
 	}
 
@@ -117,11 +107,18 @@ public class MessageBusImpl implements MessageBus {
 	public <T> Future<T> sendEvent(Event<T> e) {
 		if(!subscribeLog.containsKey(e.getClass())) // If there is no suitable Micro-Service, it should return null
 			return null;
+		boolean flag = false;
 		List<MicroService> subscribed = subscribeLog.get(e.getClass());
-		MicroService first = subscribed.get(0);
-		subscribed.remove(first);
-		subscribed.add(first);//TODO same as subscribe
-		mcroSrvcQs.get(first).add(e);
+		while(!flag) {
+			MicroService first = subscribed.get(0);
+			subscribed.remove(first);
+			synchronized(first) {
+				if(registered.get(first).registerd.get())
+				subscribed.add(first);//TODO same as subscribe
+				registered.get(first).messeges.add(e);
+				flag=true;
+			}
+		}
 		Future<T> f = new Future<>();
 		eventsFutures.put(e, f);
 		return f;
@@ -129,35 +126,53 @@ public class MessageBusImpl implements MessageBus {
 
 	@Override
 	public void register(MicroService m) {
+		
 		LinkedList<Message> queue = new LinkedList<Message>();
-		mcroSrvcQs.put(m, queue);
+		registered.computeIfAbsent(m,k-> new MicroData());
 		size++;
 	}
 
 	@Override
 	public synchronized void unregister(MicroService m) {
-		List<Message> list = mcroSrvcQs.remove(m);
-		if(list!=null) {
-			for(Class<? extends Message> c : subscribeLog.keySet())
-				subscribeLog.get(c).remove(m);
-			size--;
+		synchronized(m) {
+			MicroData mcrodata = registered.get(m);
+			if(mcrodata!=null) {
+				mcrodata.registerd.compareAndSet(true, false);
+				for(Class<? extends Message> c : mcrodata.subscribedTo)
+					subscribeLog.get(c).remove(m);
+				registered.remove(m);
+				size--;
+			}
 		}
 	}
 
 	@Override
 	public Message awaitMessage(MicroService m) throws InterruptedException {
-		List<Message> queue = mcroSrvcQs.get(m);
+		Queue<Message> queue = registered.get(m).messeges;
 		while(queue.isEmpty()) {
 			try {
 				m.wait();
 			}catch(InterruptedException e) {}
 		}
-		Message msg = queue.get(0);
+		Message msg = queue.remove();
 		queue.remove(0);
 		return msg;
 	}
-
+	
+	/**
+	 * In order to remove MicroServices from a queue without iterating over 
+	 * the entire set we should have the option to mark a MicroService
+	 * as no longer registerd. this will also allow us to track the registered 
+	 * types for a microservice instead of iterating on the list
+	 */
+	private static class MicroData{
+		
+		AtomicBoolean registerd = new AtomicBoolean(true);
+		Set<Class<? extends Message>> subscribedTo = new HashSet<>();
+		Queue<Message> messeges = new LinkedList<Message>();
+	}
 	
 
 }
+
 

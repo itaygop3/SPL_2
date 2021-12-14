@@ -1,6 +1,6 @@
-package bgu.spl.mics.application.services;
+package src.main.java.bgu.spl.mics.application.services;
 
-import bgu.spl.mics.MicroService;
+import src.main.java.bgu.spl.mics.MicroService;
 
 /**
  * Student is responsible for sending the {@link TrainModelEvent},

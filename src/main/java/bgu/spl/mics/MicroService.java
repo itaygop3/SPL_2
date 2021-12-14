@@ -24,7 +24,7 @@ public abstract class MicroService implements Runnable {
 
     protected boolean terminated = false;
     protected final String name;
-    protected ConcurrentHashMap<Class<? extends Message>, Callback<? extends Message>> callbacks;
+    protected ConcurrentHashMap<Class<? extends Message>, Callback> callbacks;
 
     /**
      * @param name the micro-service name (used mainly for debugging purposes -
@@ -32,7 +32,7 @@ public abstract class MicroService implements Runnable {
      */
     public MicroService(String name) {
         this.name = name;
-        callbacks = new ConcurrentHashMap<Class<? extends Message>, Callback<? extends Message>>();
+        callbacks = new ConcurrentHashMap<>();
     }
 
     /**
@@ -156,8 +156,14 @@ public abstract class MicroService implements Runnable {
     @Override
     public final void run() {
         initialize();
+        MessageBusImpl.getInstance().register(this);
         while (!terminated) {
-            System.out.println("NOT IMPLEMENTED!!!"); //TODO: you should delete this line :)
+            try {
+				Message msg = MessageBusImpl.getInstance().awaitMessage(this);
+					callbacks.get(msg.getClass()).call(msg);
+			}catch (InterruptedException e) {
+				e.printStackTrace();
+			}
         }
     }
 

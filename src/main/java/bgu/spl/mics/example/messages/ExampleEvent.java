@@ -1,6 +1,6 @@
-package bgu.spl.mics.example.messages;
+package src.main.java.bgu.spl.mics.example.messages;
 
-import bgu.spl.mics.Event;
+import src.main.java.bgu.spl.mics.Event;
 
 public class ExampleEvent implements Event<String>{
 

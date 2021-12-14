@@ -1,6 +1,7 @@
-package bgu.spl.mics.application.objects;
+package src.main.java.bgu.spl.mics.application.objects;
 
 import java.util.Stack;
+import src.main.java.bgu.spl.mics.application.services.*;
 
 /**
  * Passive object representing a single GPU.
@@ -11,7 +12,7 @@ public class GPU {
     /**
      * Enum representing the type of the GPU.
      */
-    enum Type {RTX3090, RTX2080, GTX1080}
+    public enum Type {RTX3090, RTX2080, GTX1080}
     
     private String name;
     private Model model;

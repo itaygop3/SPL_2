@@ -1,7 +1,7 @@
-package bgu.spl.mics.example.services;
+package src.main.java.bgu.spl.mics.example.services;
 
-import bgu.spl.mics.MicroService;
-import bgu.spl.mics.example.messages.ExampleEvent;
+import src.main.java.bgu.spl.mics.MicroService;
+import src.main.java.bgu.spl.mics.example.messages.ExampleEvent;
 
 public class ExampleEventHandlerService extends MicroService {
 
