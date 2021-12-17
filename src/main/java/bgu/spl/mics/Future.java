@@ -21,7 +21,6 @@ public class Future<T> {
 	 * This should be the the only public constructor in this class.
 	 */
 	public Future() {
-		//TODO: implement this
 	}
 	
 	/**
@@ -33,8 +32,7 @@ public class Future<T> {
      * @post
      * get() == result, get!=null    
      */
-	public T get() {
-		//TODO: implement this.
+	public synchronized T get() {
 		while(!status) {
 			try {
 				wait();
@@ -49,8 +47,7 @@ public class Future<T> {
      * Resolves the result of this Future object.
      * @post this.get()==result, this.isDone()==true
      */
-	public void resolve (T result) {
-		//TODO: implement this.
+	public synchronized void resolve (T result) {
 		T currentResult;
 		do {
 			currentResult = this.result.get();
@@ -63,7 +60,6 @@ public class Future<T> {
      * @return true if this object has been resolved, false otherwise
      */
 	public boolean isDone() {
-		//TODO: implement this.
 		return status;
 	}
 	
@@ -78,8 +74,7 @@ public class Future<T> {
      * 	       wait for {@code timeout} TimeUnits {@code unit}. If time has
      *         elapsed, return null.
      */
-	public T get(long timeout, TimeUnit unit) {
-		//TODO: implement this.
+	public synchronized T get(long timeout, TimeUnit unit) {
 		if(timeout==0)
 			return result.get();
 		try {
@@ -87,14 +82,4 @@ public class Future<T> {
 		}catch(InterruptedException e) {}
 		return result.get();
 	}
-	private static String s = null;
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		Future<String> f = new Future<>();
-		s = null;
-		String result = "";
-		Thread t=new Thread(()->s=f.get());
-		t.start();
-	}
-
 }

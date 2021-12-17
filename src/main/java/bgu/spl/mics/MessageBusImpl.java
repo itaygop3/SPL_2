@@ -15,7 +15,8 @@ import java.util.*;
 public class MessageBusImpl implements MessageBus {
 	
 	private static MessageBusImpl msgBus = new MessageBusImpl();
-	private HashMap<MicroService,MicroData> registered = new HashMap<>();
+	
+	private ConcurrentHashMap<MicroService,MicroData> registered = new ConcurrentHashMap<>();
 	private int size = 0;
 	private ConcurrentHashMap <Event<?> ,Future<?>> eventsFutures = new ConcurrentHashMap<>();
 	private ConcurrentHashMap<Class<? extends Message>, List<MicroService>> subscribeLog = new ConcurrentHashMap<>();
@@ -32,10 +33,10 @@ public class MessageBusImpl implements MessageBus {
 	}
 	
 	public <T> boolean isSubscribedToEvent(Class<? extends Event<T>> type, MicroService m) {
-		return registered.get(m).subscribedTo.contains(type);
+		return registered.get(m).subscribedTo.contains(type);//Checks in m's data if subscribed
 	}
 	public boolean isSubscribedToBroadcast(Class<? extends Broadcast> type, MicroService m) {
-		return registered.get(m).subscribedTo.contains(type);
+		return registered.get(m).subscribedTo.contains(type);//Checks in m's data if subscribed
 	}
 	
 	public boolean isInMsgBus(MicroService m) {
@@ -61,7 +62,7 @@ public class MessageBusImpl implements MessageBus {
 		if(subscribeLog.containsKey(type)) {
 			List<MicroService> tmp = subscribeLog.get(type);
 			tmp.add(m);
-			registered.get(m).subscribedTo.add(type);
+			registered.get(m).subscribedTo.add(type);//add to m's data
 		}
 		else subscribeMessage(type, m, lock2);
 	}
@@ -75,9 +76,8 @@ public class MessageBusImpl implements MessageBus {
 				subscribeLog.put(type,tmp);
 				registered.get(m).subscribedTo.add(type);
 			}
-			else flag = true;
+			else flag = true;//Another Thread did it first
 		}
-		//TODO check if event types can be deleted (if no one is subscribed)
 		if(flag) {
 			if(lock == lock1)
 				subscribeEvent((Class<? extends Event<T>>)type, m);
@@ -111,12 +111,15 @@ public class MessageBusImpl implements MessageBus {
 		List<MicroService> subscribed = subscribeLog.get(e.getClass());
 		while(!flag) {
 			MicroService first = subscribed.get(0);
-			subscribed.remove(first);
 			synchronized(first) {
-				if(registered.get(first).registerd.get())
-				subscribed.add(first);//TODO same as subscribe
-				registered.get(first).messeges.add(e);
-				flag=true;
+				subscribed.remove(first);
+				if(!first.terminated) {
+					subscribed.add(first);
+					Queue<Message> q = registered.get(first).messeges;
+					q.add(e);
+					flag=true;
+					first.notifyAll();
+				}
 			}
 		}
 		Future<T> f = new Future<>();
@@ -126,14 +129,12 @@ public class MessageBusImpl implements MessageBus {
 
 	@Override
 	public void register(MicroService m) {
-		
-		LinkedList<Message> queue = new LinkedList<Message>();
-		registered.computeIfAbsent(m,k-> new MicroData());
+		registered.putIfAbsent(m, new MicroData());
 		size++;
 	}
 
 	@Override
-	public synchronized void unregister(MicroService m) {
+	public void unregister(MicroService m) {
 		synchronized(m) {
 			MicroData mcrodata = registered.get(m);
 			if(mcrodata!=null) {
@@ -149,13 +150,16 @@ public class MessageBusImpl implements MessageBus {
 	@Override
 	public Message awaitMessage(MicroService m) throws InterruptedException {
 		Queue<Message> queue = registered.get(m).messeges;
-		while(queue.isEmpty()) {
-			try {
-				m.wait();
-			}catch(InterruptedException e) {}
+		while(queue.isEmpty()&!m.terminated) {
+			synchronized(m) {
+				try{
+					m.wait();
+				}catch(InterruptedException e) {}
+			}
 		}
-		Message msg = queue.remove();
-		queue.remove(0);
+		Message msg = null;
+		if(!m.terminated)
+			msg = queue.remove();
 		return msg;
 	}
 	

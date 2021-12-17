@@ -1,45 +1,88 @@
 package src.main.java.bgu.spl.mics.application.objects;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Queue;
+
+import src.main.java.bgu.spl.mics.application.services.*;
+import java.util.LinkedList;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+
 /**
  * Passive object representing a single CPU.
  * Add all the fields described in the assignment as private fields.
  * Add fields and methods to this class as you see fit (including public methods and constructors).
  */
 public class CPU {
-	
-	private int cores;
-	private Collection<DataBatch> data;
-	private Cluster cluster;
-	private boolean isFree = true;
-	
-	public CPU(int cores, Cluster cluster) {
-		cores = cores;
-		data = new ArrayList<DataBatch>();
-		cluster = cluster;
-	}
-	
-	public void insertData(DataBatch batch){
-		data.add(batch);
-		isFree = false;
-	}
-	
-	public Queue<DataBatch> getData(){
-		return data;
-	}
-	
-	private DataBatch process() {
-		
-	}
-	
-	public void sendProcessedData() {
-		
-	}
-	
-	public boolean isFree() {
-		return isFree;
-	}
-	
+    private int cores;
+    private Queue<DataBatch> data=new LinkedList<>();//data the cpu works on-needs to be processed.
+    private Cluster cluster = Cluster.getInstance();
+    private AtomicInteger currentTicksNumber=new AtomicInteger(0);
+    private CPUService srvc=new CPUService("", this);
+    private int fullWorktime = 0;//this is the ticks number it takes to finish processing all the batches currently in his queue(or being processed)
+
+    public int getFullWorkTime() {
+    	return fullWorktime;
+    }
+
+    public CPUService getService() {
+    	return srvc;
+    }
+    
+    public CPU(int _cores){
+        cores=_cores;
+    }
+
+    public AtomicInteger getCurrentTicksNumber(){
+        return currentTicksNumber;
+    }
+    
+    public void insertData(DataBatch d) {
+    	data.add(d);
+    	fullWorktime+=timeToWait(d);
+    }
+    
+    private int timeToWait(DataBatch d) {
+    	Data.Type type = d.getData().getType();
+        int time = 32/cores;
+        switch(type){
+            case Images:
+                return time*4;
+            case Text:
+                return time*2;
+            case Tabular:
+                return time;
+        }
+        return time;
+    }
+
+    private int timeToWait(){
+        Data.Type type = data.peek().getData().getType();
+        int time = 32/cores;
+        switch(type){
+            case Images:
+                return time*4;
+            case Text:
+                return time*2;
+            case Tabular:
+                return time;
+        }
+        return time;
+    }
+    
+    public void tick() {
+    	if(fullWorktime>0)
+    		fullWorktime--;
+    }
+
+    public void process(){
+        if(data.isEmpty()) return;
+        DataBatch dataBatch=data.remove();
+        dataBatch.setProcessedAt(dataBatch.getTimeTicks()+1);//process when gets time tick
+        int t=timeToWait();
+        if (dataBatch.getTimeTicks()>=t) {//checks if t ticks have passed since start of process.
+            dataBatch.setProcessedAt(currentTicksNumber.get());
+        	cluster.prioritize(this);
+            cluster.sendToTrain(dataBatch); //sends the processed data to the cluster
+        	cluster.updateCPUTicks(t);
+        }
+
+    }
 }

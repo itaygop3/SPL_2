@@ -18,8 +18,8 @@ public class Data {
     private int size;
     
     public Data(Type type,int size) {
-    	type=type;
-    	size=size;
+    	this.type=type;
+    	this.size=size;
     	processed = 0;
     }
     

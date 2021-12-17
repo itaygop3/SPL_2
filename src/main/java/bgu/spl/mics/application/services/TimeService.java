@@ -1,6 +1,13 @@
 package src.main.java.bgu.spl.mics.application.services;
 
+import src.main.java.bgu.spl.mics.MessageBusImpl;
 import src.main.java.bgu.spl.mics.MicroService;
+import src.main.java.bgu.spl.mics.application.CRMSRunner;
+import src.main.java.bgu.spl.mics.application.messages.LastTickBroadcast;
+import src.main.java.bgu.spl.mics.application.messages.TickBroadcast;
+
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * TimeService is the global system timer There is only one instance of this micro-service.
@@ -12,16 +19,33 @@ import src.main.java.bgu.spl.mics.MicroService;
  * You MAY change constructor signatures and even add new public constructors.
  */
 public class TimeService extends MicroService{
-
-	public TimeService() {
+	
+	private int finalTick;//The time of termination
+	private int tickTime;
+	int curTick = 0;
+	private Timer timer = new Timer();
+	
+	public TimeService(int _tickTime, int finalTime) {
 		super("Change_This_Name");
-		// TODO Implement this
+		finalTick = finalTime;
+	}
+	
+	private void sentTick() {
+		timer.schedule(new TimerTask() {
+			public void run() {
+				MessageBusImpl.getInstance().sendBroadcast(new TickBroadcast());
+				curTick++;
+			}
+		}, tickTime);
 	}
 
 	@Override
-	protected void initialize() {
-		// TODO Implement this
-		
+	public void initialize() {
+		while(curTick<finalTick-1)
+			sentTick();
+		timer.schedule(new TimerTask() {
+			public void run() {MessageBusImpl.getInstance().sendBroadcast(new LastTickBroadcast());}
+		}, CRMSRunner.tickTime);
 	}
 
 }

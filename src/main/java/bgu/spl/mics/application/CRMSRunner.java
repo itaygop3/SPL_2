@@ -5,6 +5,9 @@ package src.main.java.bgu.spl.mics.application;
  * In the end, you should output a text file.
  */
 public class CRMSRunner {
+	
+	public static int tickTime = 0;
+	
     public static void main(String[] args) {
         System.out.println("Hello World!");
     }

@@ -1,6 +1,9 @@
 package src.main.java.bgu.spl.mics.application.services;
 
-import src.main.java.bgu.spl.mics.MicroService;
+import java.util.*;
+import src.main.java.bgu.spl.mics.*;
+import src.main.java.bgu.spl.mics.application.messages.*;
+import src.main.java.bgu.spl.mics.application.objects.*;
 
 /**
  * GPU service is responsible for handling the
@@ -12,15 +15,108 @@ import src.main.java.bgu.spl.mics.MicroService;
  * You MAY change constructor signatures and even add new public constructors.
  */
 public class GPUService extends MicroService {
-
-    public GPUService(String name) {
-        super("Change_This_Name");
-        // TODO Implement this
+    private Cluster cluster = Cluster.getInstance();
+	private GPU gpu;
+	private Queue<Event<Model>> events = new LinkedList<>();
+	private Thread assistant = new Thread(new Assistant());
+	
+	private Callback<TrainModelEvent> trainModelCallback = (event->{
+		synchronized(events) {
+			events.add(event);
+			events.notify();
+		}
+	});
+	private Callback<TestModelEvent> testModelCallback = (event->{
+		synchronized(events) {
+			events.add(event);
+			events.notify();
+		}
+	});
+	private Callback<TickBroadcast> tickCallback = (tick->{
+		gpu.updateTime();
+		synchronized(gpu) {
+			gpu.notifyAll();
+		}
+	});
+	private Callback<LastTickBroadcast> lastTickCallback = (tick -> {
+		this.terminate();
+		synchronized (gpu.getLock()) {
+			gpu.getLock().notifyAll();
+		}
+	});
+	
+	private void trainNewModel(TrainModelEvent event) {
+		gpu.sendFirstChunk();
+		while(event.getModel().getStatus() != Model.Status.Trained&!terminated) {
+			if(gpu.getVRAMSize() == 0)
+				waitForProcessedData();
+			gpu.trainProcessedData();
+		}
+		if(!terminated) {
+			complete(event, event.getModel());
+			gpu.modelIsFinished();
+		}
+	}
+	
+	private void waitForProcessedData() {
+		while(gpu.getVRAMSize() == 0&!terminated) {
+			synchronized(gpu.getLock()) {
+				try {
+					gpu.getLock().wait();
+				}catch(InterruptedException e) {}
+			}
+		}
+	}
+	
+	public void testModel(TestModelEvent e) {
+		Model m = e.getModel();
+		gpu.testModel(m);
+		MessageBusImpl.getInstance().complete(e, m);
+	}
+	
+    public GPUService(String name, GPU _gpu) {
+        super(name+"Svc");
+        gpu = _gpu;
     }
+    
 
     @Override
     protected void initialize() {
-        // TODO Implement this
-
+    	MessageBusImpl.getInstance().register(this);
+    	subscribeEvent(TrainModelEvent.class, trainModelCallback);
+    	subscribeEvent(TestModelEvent.class, testModelCallback);
+    	subscribeBroadcast(TickBroadcast.class, tickCallback);
+    	subscribeBroadcast(LastTickBroadcast.class, lastTickCallback);
+    	cluster.addToList(gpu);
+    	assistant.start();
+    }
+    
+    class Assistant implements Runnable{
+    	public void run() {
+	    	while(!terminated) {
+    			while(events.isEmpty()) {
+	    			synchronized (events) {
+						try {
+							events.wait();
+						} catch (InterruptedException e1) {}
+					}
+	    		}
+	    		Event<Model> next = null;
+	    		for(Event<Model> e : events) {
+	    			if(e instanceof TestModelEvent) {
+	    				next = e;
+	    				break;
+	    			}
+	    		}
+	    		if(next!=null) {
+	    			testModel((TestModelEvent)next);
+	    			events.remove(next);
+	    		}
+	    		else {
+	    			next = events.remove();
+	    			trainNewModel((TrainModelEvent)next);
+	    		}
+    		}
+    	}
     }
 }

@@ -1,6 +1,6 @@
 package src.main.java.bgu.spl.mics.application.objects;
 
-import java.util.Stack;
+import java.util.*;
 import src.main.java.bgu.spl.mics.application.services.*;
 
 /**
@@ -9,47 +9,56 @@ import src.main.java.bgu.spl.mics.application.services.*;
  * Add fields and methods to this class as you see fit (including public methods and constructors).
  */
 public class GPU {
-    /**
+	/**
      * Enum representing the type of the GPU.
      */
     public enum Type {RTX3090, RTX2080, GTX1080}
     
+    private int ticksNum = 0;
+    private Type type;
     private String name;
-    private Model model;
-    private Cluster cluster;
-    private GPUService MS;
-    private Data[] VRAM;
-    private int VRAMSize = 0;
-    private int next = 0;
-    private Stack<DataBatch> batches;
+    private Model model = null;
+    private Cluster cluster = Cluster.getInstance();
+    private GPUService MS = new GPUService("",this);
+    private Queue<DataBatch> VRAM = new LinkedList<>();
+    private int VRAMCapacity;
+    private List<DataBatch> data = null;
+    private Object lock = new Object();
     
-    public GPU(Type type, Cluster cluster, String name, GPUService gpuSvc) {
-    	type = type;
-    	cluster = cluster;
-    	model = null;
-    	MS = gpuSvc; 
-    	if(type.equals(Type.RTX3090))
-    		VRAM = new Data[32];
-    	else if(type.equals(Type.RTX2080))
-    		VRAM = new Data[16];
-    	else VRAM = new Data[8];
-    	batches=devideToBatches(model.getData());
+    
+    public GPU(Type type, String name) {
+    	this.type = type;
+    	switch(type) {
+    	case GTX1080:
+    		VRAMCapacity = 8;
+    		break;
+    	case RTX2080:
+    		VRAMCapacity = 16;
+    		break;
+    	case RTX3090:
+    		VRAMCapacity = 32;
+    	}
     }
     
-    public int getNext() {
-    	return next;
+    public GPUService getGPUService() {
+    	return MS;
+    }
+    
+    public synchronized void updateTime() {
+    	ticksNum++;
+    	this.notifyAll();
     }
     
     public int getVRAMSize() {
-    	return VRAMSize;
+    	return VRAM.size();
     }
     
     public int getVRAMCapacity() {
-    	return VRAM.length;
+    	return VRAMCapacity;
     }
     
-    public Stack<DataBatch> getBatches(){
-    	return batches;
+    public List<DataBatch> getData(){
+    	return data;
     }
     
     public String getName() {
@@ -61,37 +70,130 @@ public class GPU {
     }
     
     public boolean isFull() {
-    	
+    	return VRAM.size() == VRAMCapacity;
     }
     
-    private Stack<DataBatch> devideToBatches(Data data){
+    public void modelIsFinished() {
+    	model = null;
+    }
+    
+    private List<DataBatch> devideToBatches(Data data){
     	data = model.getData();
-    	Stack<DataBatch> s = new Stack<DataBatch>();
+    	List<DataBatch> s = new LinkedList<DataBatch>();
     	int dataSize = data.getSize();
     	for(int i=0;i<dataSize;i+=1000) {
     		DataBatch next = new DataBatch(data,i);
-    		s.push(next);
+    		s.add(next);
     	}
     	return s;
     }
     
     public void setModel(Model model) {
-    	model = model;
+    	this.model = model;
+    	data=devideToBatches(model.getData());
     }
     
-    public void sendData() {
-    	
+    /**
+     * This method sends {@code num} data batches to the cluster
+     * @param num The number of data batches to send to the cluster
+     */
+    public void sendData(int num) {
+    	if(num == 0 | data.isEmpty())
+    		return;
+    	if(num == 1) {
+    		cluster.sendToProcess(data.remove(0), this);
+    		return;
+    	}
+    	List<DataBatch> delivery = new LinkedList<>();
+    	for(int i = 0 ; i < num & !data.isEmpty() ; i++)
+    		delivery.add(data.remove(0));
+    	cluster.sendToProcess(delivery, this);
     }
     
-    public void reciveProcessedData(DataBatch db) {
-    	
+    public void sendFirstChunk() {
+    	sendData(VRAMCapacity);
     }
     
-    public DataBatch trainProcessedData() {
-    	
+    public Object getLock() {
+    	return lock;
     }
     
     
+    /**
+     * @param db the processed data batch to be trained
+     * @return false if {@code VRAM} is full
+     */
+    public boolean reciveProcessedData(DataBatch db) {
+    	if(isFull())
+    		return false;
+    	VRAM.add(db);
+    	synchronized(lock) {
+    		lock.notifyAll();
+    	}
+    	return true;
+    }
     
+    /**
+     * @return number of ticks needed for a batch to be trained in this {@code GPU}
+     */
+    private int numOfTicks() {
+    	switch(type) {
+    	case GTX1080:
+    		return 4;
+    	case RTX2080:
+    		return 2;
+    	case RTX3090:
+    		return 1;
+    	}
+    	return 0;
+    }
+    
+    
+    public void trainProcessedData() {
+    	if(VRAM.size()<1)
+    		return;
+    	//If this is the first batch being processed update the status of the model
+    	if(VRAM.peek().getIndex() == 0)
+    		model.updateStatus();
+    	int curTime = VRAM.remove().ProcessedAt();
+    	/*
+    	 * Wait while the number of ticks from the time(number of ticks) the batch was sent from the cpu
+    	 * until current time is enough for the GPU to finish training the model
+    	 * (because the batch might not really be sent instantly) 
+    	 */
+	    while(ticksNum-curTime <numOfTicks()){
+	    	try {
+	    		this.wait();
+			} catch (InterruptedException e) {}
+	    }
+	    cluster.updateGPUTicks(numOfTicks());
+    	model.getData().incrementData();
+    	sendData(1);
+    	checkProgress();
+    }
+    
+    /**
+     * This method checks if {@code model} has complete its training
+     */
+    private void checkProgress() {
+    	if(model.getData().getProcessed() == model.getData().getSize()) {
+    		model.updateStatus();
+    		cluster.addToList(model);
+    	}
+    }
+    
+    public void testModel(Model m) {
+    	Integer rendom = (int)(Math.random()*10);
+    	if(m.getStudent().getStatus() == Student.Degree.PhD) {
+    		if(rendom<8)
+    			m.setResult(Model.Result.GOOD);
+    		else m.setResult(Model.Result.BAD);
+    	}
+    	else {
+    		if(rendom<6)
+    			m.setResult(Model.Result.GOOD);
+    		else m.setResult(Model.Result.BAD);
+    	}
+    }
     
 }

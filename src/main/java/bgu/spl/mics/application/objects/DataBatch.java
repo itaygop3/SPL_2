@@ -10,12 +10,21 @@ public class DataBatch {
 	private Data data;
 	private int start_index;
 	private int timeTicks = 0;
+	private int processedAt = 0;//The ticks number when this batch was fully processed
 	
 	public DataBatch(Data data, int startIndex) {
 		this.data = data;
 		start_index = startIndex;
 	}
 	
+	public int ProcessedAt() {
+		return processedAt;
+	}
+
+	public void setProcessedAt(int processedAt) {
+		this.processedAt = processedAt;
+	}
+
 	public Data getData() {
 		return data;
 	}

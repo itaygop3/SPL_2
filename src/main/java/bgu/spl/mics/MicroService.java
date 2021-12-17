@@ -1,6 +1,5 @@
 package src.main.java.bgu.spl.mics;
-import src.main.java.bgu.spl.mics.MessageBusImpl;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 /**
  * The MicroService is an abstract class that any micro-service in the system
@@ -24,7 +23,7 @@ public abstract class MicroService implements Runnable {
 
     protected boolean terminated = false;
     protected final String name;
-    protected ConcurrentHashMap<Class<? extends Message>, Callback> callbacks;
+    private HashMap<Class<? extends Message>, Callback> callbacks;
 
     /**
      * @param name the micro-service name (used mainly for debugging purposes -
@@ -32,7 +31,7 @@ public abstract class MicroService implements Runnable {
      */
     public MicroService(String name) {
         this.name = name;
-        callbacks = new ConcurrentHashMap<>();
+        callbacks = new HashMap<>();
     }
 
     /**
@@ -109,7 +108,6 @@ public abstract class MicroService implements Runnable {
      * @param b The broadcast message to send
      */
     protected final void sendBroadcast(Broadcast b) {
-        //TODO: implement this.
     	MessageBusImpl.getInstance().sendBroadcast(b);
     }
 
@@ -124,7 +122,6 @@ public abstract class MicroService implements Runnable {
      *               {@code e}.
      */
     protected final <T> void complete(Event<T> e, T result) {
-        //TODO: implement this.
     	MessageBusImpl.getInstance().complete(e, result);
     }
 
@@ -139,6 +136,7 @@ public abstract class MicroService implements Runnable {
      */
     protected final void terminate() {
         this.terminated = true;
+        MessageBusImpl.getInstance().unregister(this);
     }
 
     /**
@@ -150,7 +148,7 @@ public abstract class MicroService implements Runnable {
     }
 
     /**
-     * The entry point of the micro-service. TODO: you must complete this code
+     * The entry point of the micro-service. 
      * otherwise you will end up in an infinite loop.
      */
     @Override
@@ -160,6 +158,7 @@ public abstract class MicroService implements Runnable {
         while (!terminated) {
             try {
 				Message msg = MessageBusImpl.getInstance().awaitMessage(this);
+				if(msg!=null)
 					callbacks.get(msg.getClass()).call(msg);
 			}catch (InterruptedException e) {
 				e.printStackTrace();

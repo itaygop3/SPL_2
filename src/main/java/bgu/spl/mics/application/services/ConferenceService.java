@@ -1,6 +1,8 @@
 package src.main.java.bgu.spl.mics.application.services;
 
-import src.main.java.bgu.spl.mics.MicroService;
+import src.main.java.bgu.spl.mics.*;
+import src.main.java.bgu.spl.mics.application.messages.*;
+import src.main.java.bgu.spl.mics.application.objects.ConfrenceInformation;
 
 /**
  * Conference service is in charge of
@@ -12,14 +14,35 @@ import src.main.java.bgu.spl.mics.MicroService;
  * You MAY change constructor signatures and even add new public constructors.
  */
 public class ConferenceService extends MicroService {
-    public ConferenceService(String name) {
-        super("Change_This_Name");
-        // TODO Implement this
+    
+	private int deathTime;
+	private int currentTime = 0;
+	private ConfrenceInformation conferenceInformation;
+	
+	public ConferenceService(String name, int _deathTime, ConfrenceInformation conference) {
+        super(name+"Svc");
+        deathTime = _deathTime;
+        conferenceInformation = conference;
+        initialize();
     }
+    private Callback<TickBroadcast> tickCallBack = (b ->{
+    	//Update the time and check if its time to die
+    	if(++currentTime == deathTime) {
+    		Broadcast result = new PublishConferenceBroadcast(conferenceInformation.getSuccessfulModel());
+    		MessageBusImpl.getInstance().sendBroadcast(result);
+    		terminate();
+    	}	
+    });
+    private Callback<PublishResultsEvent> publishResultCallback = (result ->{
+    	conferenceInformation.addModel(result.getModel());
+    	MessageBusImpl.getInstance().complete(result, result.getModel());
+    });
+    
 
     @Override
     protected void initialize() {
-        // TODO Implement this
-
+        MessageBusImpl.getInstance().register(this);
+        subscribeEvent(PublishResultsEvent.class, publishResultCallback);
+        subscribeBroadcast(TickBroadcast.class, tickCallBack);
     }
 }

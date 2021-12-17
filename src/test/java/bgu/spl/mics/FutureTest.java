@@ -30,16 +30,15 @@ class FutureTest {
 		Future<String> f = new Future<>();
 		s = null;
 		String result = "";
-		Thread t=new Thread(()->s=f.get());
-		Thread t2 = new Thread(()->f.resolve(result));
+		Thread t=new Thread(()->{
+			s=f.get();
+			assertEquals(result, s);
+		});
 		t.start();
-		assertNull(s);
-		t2.start();
+		f.resolve(result);
 		try {
 			t.join();
-			t2.join();
 		}catch(InterruptedException e) {}
-		assertEquals(result, s);
 	}
 	
 	@Test
@@ -64,19 +63,23 @@ class FutureTest {
 		s = null;
 		Future<String> f = new Future<>();
 		TimeUnit unit=TimeUnit.SECONDS;
-		Thread t=new Thread(()->s=f.get(3, unit));
-		t.run();
+		Thread t=new Thread(()->{
+		s=f.get(3, unit);
 		assertNull(s);
+		});
+		t.start();
 		try {
 			t.join();
 		}catch(InterruptedException e) {}
-		assertNull(s);
-		t.run();
+		t = new Thread(()->{
+			s = f.get(3, unit);
+			assertEquals("", s);
+		});
+		t.start();
 		f.resolve("");
 		try {
-			wait(unit.toMillis(1));
+			Thread.sleep(unit.toMillis(1));
 		}catch(InterruptedException e) {}
-		assertEquals("",s);
 		
 	}
 	

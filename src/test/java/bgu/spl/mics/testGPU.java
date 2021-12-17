@@ -10,7 +10,7 @@ class testGPU {
 
 	@Test
 	public void testSendData() {
-		GPU gpu = new GPU(GPU.Type.RTX3090, new Cluster(), "", new GPUService("name"));
+		GPU gpu = new GPU(GPU.Type.RTX3090, "");
 		Stack<DataBatch> s = gpu.getBatches();
 		int preIndex = s.peek().getIndex();
 		gpu.sendData();

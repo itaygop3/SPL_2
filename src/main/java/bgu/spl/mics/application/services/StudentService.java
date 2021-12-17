@@ -1,6 +1,9 @@
 package src.main.java.bgu.spl.mics.application.services;
 
-import src.main.java.bgu.spl.mics.MicroService;
+import java.util.*;
+import src.main.java.bgu.spl.mics.*;
+import src.main.java.bgu.spl.mics.application.objects.*;
+import src.main.java.bgu.spl.mics.application.messages.*;
 
 /**
  * Student is responsible for sending the {@link TrainModelEvent},
@@ -12,14 +15,48 @@ import src.main.java.bgu.spl.mics.MicroService;
  * You MAY change constructor signatures and even add new public constructors.
  */
 public class StudentService extends MicroService {
-    public StudentService(String name) {
-        super("Change_This_Name");
-        // TODO Implement this
+    
+	private Student student;
+	private Assistant task = new Assistant();
+	private Thread assistant = new Thread(task);
+	
+	public StudentService(String name, Student _student) {
+        super(name+"Svc");
+        student = _student;
+        initialize();
     }
 
     @Override
     protected void initialize() {
-        // TODO Implement this
-
+        MessageBusImpl.getInstance().register(this);
+        subscribeBroadcast(LastTickBroadcast.class, k -> {
+        	terminate();
+        	synchronized (task.f) {
+				task.f.notifyAll();
+			}
+        	});
+        subscribeBroadcast(PublishConferenceBroadcast.class, k -> student.read(k.getSuccessfulModels()));
+        assistant.start();
+    }
+    
+    class Assistant implements Runnable{
+    	
+    	public Future<Model> f= null;
+    	
+    	public void run() {
+    		Iterator<Model> it = student.getmodelsToTrain().iterator();
+    		do {
+    			Model m = it.next();
+    			do{
+    				f = MessageBusImpl.getInstance().sendEvent(new TrainModelEvent(m));
+    			}while(f == null&!terminated);
+    			if(!terminated)
+    				f = MessageBusImpl.getInstance().sendEvent(new TestModelEvent(f.get()));
+    			if(!terminated) {
+    				f = MessageBusImpl.getInstance().sendEvent(new PublishResultsEvent(f.get()));
+    				student.incrementPublished();
+    			}
+    		}while(!terminated&it.hasNext());
+    	}
     }
 }

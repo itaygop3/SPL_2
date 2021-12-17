@@ -5,13 +5,13 @@ import java.util.*;
 
 public class PublishConferenceBroadcast implements Broadcast{
 	
-	private Set<String> successfulModels;
+	private LinkedList<String> successfulModels;
 	
-	public PublishConferenceBroadcast(Set<String> _successfulModels) {
+	public PublishConferenceBroadcast(LinkedList<String> _successfulModels) {
 		successfulModels = _successfulModels;
 	}
 
-	public Set<String> getSuccessfulModels() {
+	public LinkedList<String> getSuccessfulModels() {
 		return successfulModels;
 	}
 	
