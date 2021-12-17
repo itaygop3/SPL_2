@@ -15,19 +15,20 @@ public class CPU {
     private Queue<DataBatch> data=new LinkedList<>();//data the cpu works on-needs to be processed.
     private Cluster cluster = Cluster.getInstance();
     private AtomicInteger currentTicksNumber=new AtomicInteger(0);
-    private CPUService srvc=new CPUService("", this);
-    private int fullWorktime = 0;//this is the ticks number it takes to finish processing all the batches currently in his queue(or being processed)
-
+    private CPUService srvc;
+    private int fullWorktime = 0;//this is the ticks number it takes to finish processing all the batches currently in the queue(or being processed)
+    
+    public CPU(int _cores){
+        cores=_cores;
+        srvc=new CPUService("", this);
+    }
+    
     public int getFullWorkTime() {
     	return fullWorktime;
     }
 
     public CPUService getService() {
     	return srvc;
-    }
-    
-    public CPU(int _cores){
-        cores=_cores;
     }
 
     public AtomicInteger getCurrentTicksNumber(){
@@ -73,12 +74,15 @@ public class CPU {
     }
 
     public void process(){
-        if(data.isEmpty()) return;
-        DataBatch dataBatch=data.remove();
+    	if(data.isEmpty()) 
+    		return;
+        
+        DataBatch dataBatch=data.peek();
         dataBatch.setProcessedAt(dataBatch.getTimeTicks()+1);//process when gets time tick
         int t=timeToWait();
         if (dataBatch.getTimeTicks()>=t) {//checks if t ticks have passed since start of process.
-            dataBatch.setProcessedAt(currentTicksNumber.get());
+            data.remove();
+        	dataBatch.setProcessedAt(currentTicksNumber.get());
         	cluster.prioritize(this);
             cluster.sendToTrain(dataBatch); //sends the processed data to the cluster
         	cluster.updateCPUTicks(t);

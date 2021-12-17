@@ -33,6 +33,7 @@ public class ConferenceService extends MicroService {
     		terminate();
     	}	
     });
+    
     private Callback<PublishResultsEvent> publishResultCallback = (result ->{
     	conferenceInformation.addModel(result.getModel());
     	MessageBusImpl.getInstance().complete(result, result.getModel());

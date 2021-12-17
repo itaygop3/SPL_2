@@ -110,11 +110,13 @@ public class MessageBusImpl implements MessageBus {
 		boolean flag = false;
 		List<MicroService> subscribed = subscribeLog.get(e.getClass());
 		while(!flag) {
+			if(subscribed.isEmpty())
+				return null;
 			MicroService first = subscribed.get(0);
 			synchronized(first) {
 				subscribed.remove(first);
 				if(!first.terminated) {
-					subscribed.add(first);
+					subscribed.add(first);//To send in round robin
 					Queue<Message> q = registered.get(first).messeges;
 					q.add(e);
 					flag=true;

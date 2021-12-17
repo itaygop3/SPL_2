@@ -12,11 +12,12 @@ public class ConfrenceInformation {
     private String name;
     private int date;
     private LinkedList<String> successfulModel = new LinkedList<String>();
-    private ConferenceService svc = new ConferenceService("", date, this);
+    private ConferenceService svc;
 
     public ConfrenceInformation(String _name, int _date){
         name=_name;
         date=_date;
+        svc = new ConferenceService(name, date, this);
     }
     
     public ConferenceService getService() {

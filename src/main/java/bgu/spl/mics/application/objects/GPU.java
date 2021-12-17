@@ -19,15 +19,16 @@ public class GPU {
     private String name;
     private Model model = null;
     private Cluster cluster = Cluster.getInstance();
-    private GPUService MS = new GPUService("",this);
+    private GPUService MS;
     private Queue<DataBatch> VRAM = new LinkedList<>();
     private int VRAMCapacity;
     private List<DataBatch> data = null;
     private Object lock = new Object();
     
     
-    public GPU(Type type, String name) {
+    public GPU(Type type, String _name) {
     	this.type = type;
+    	this.name = _name;
     	switch(type) {
     	case GTX1080:
     		VRAMCapacity = 8;
@@ -38,6 +39,7 @@ public class GPU {
     	case RTX3090:
     		VRAMCapacity = 32;
     	}
+    	MS = new GPUService(name, this);
     }
     
     public GPUService getGPUService() {
@@ -153,18 +155,20 @@ public class GPU {
     	if(VRAM.size()<1)
     		return;
     	//If this is the first batch being processed update the status of the model
-    	if(VRAM.peek().getIndex() == 0)
+    	if(model.getStatus() == Model.Status.PreTrained)
     		model.updateStatus();
     	int curTime = VRAM.remove().ProcessedAt();
     	/*
     	 * Wait while the number of ticks from the time(number of ticks) the batch was sent from the cpu
     	 * until current time is enough for the GPU to finish training the model
-    	 * (because the batch might not really be sent instantly) 
+    	 * (because the batch might not really be sent instantly and we don't want to lose ticks) 
     	 */
 	    while(ticksNum-curTime <numOfTicks()){
-	    	try {
-	    		this.wait();
-			} catch (InterruptedException e) {}
+	    	synchronized(this) {
+	    		try {
+	    			this.wait();
+	    		} catch (InterruptedException e) {}
+	    	}
 	    }
 	    cluster.updateGPUTicks(numOfTicks());
     	model.getData().incrementData();

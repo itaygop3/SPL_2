@@ -43,6 +43,7 @@ public class TimeService extends MicroService{
 	public void initialize() {
 		while(curTick<finalTick-1)
 			sentTick();
+		//Last tick should be LastTickEvent
 		timer.schedule(new TimerTask() {
 			public void run() {MessageBusImpl.getInstance().sendBroadcast(new LastTickBroadcast());}
 		}, CRMSRunner.tickTime);

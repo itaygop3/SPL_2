@@ -20,8 +20,8 @@ public class Student {
     private int publications = 0;
     private int papersRead = 0;
     private Set<String> modelNames;
-    private LinkedList<Model> modelsToTrain = new LinkedList<>();
-    private StudentService service = new StudentService("", this);
+    private LinkedList<Model> modelsToTrain;
+    private StudentService service;
 
     public Student(String _name, String _department, Degree _status, LinkedList<Model> models) {
     	name = _name;
@@ -29,6 +29,7 @@ public class Student {
     	status = _status;
     	modelNames = modelNames();
     	modelsToTrain = models;
+    	service = new StudentService(name, this);
     }
     
     private Set<String> modelNames(){

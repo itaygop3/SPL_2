@@ -29,11 +29,9 @@ public class StudentService extends MicroService {
     @Override
     protected void initialize() {
         MessageBusImpl.getInstance().register(this);
-        subscribeBroadcast(LastTickBroadcast.class, k -> {
+        subscribeBroadcast(LastTickBroadcast.class, k -> {//The callback for lastTickBroadcast
         	terminate();
-        	synchronized (task.f) {
-				task.f.notifyAll();
-			}
+        	synchronized(task.f) {task.f.notifyAll();}
         	});
         subscribeBroadcast(PublishConferenceBroadcast.class, k -> student.read(k.getSuccessfulModels()));
         assistant.start();
@@ -53,8 +51,9 @@ public class StudentService extends MicroService {
     			if(!terminated)
     				f = MessageBusImpl.getInstance().sendEvent(new TestModelEvent(f.get()));
     			if(!terminated) {
-    				f = MessageBusImpl.getInstance().sendEvent(new PublishResultsEvent(f.get()));
-    				student.incrementPublished();
+    				f = MessageBusImpl.getInstance().sendEvent(new PublishResultsEvent(f.get()));//In our implentation it won't be added if result is bad
+    				if(f.get().getResult() ==  Model.Result.GOOD)
+    					student.incrementPublished();
     			}
     		}while(!terminated&it.hasNext());
     	}

@@ -20,6 +20,8 @@ public class GPUService extends MicroService {
 	private Queue<Event<Model>> events = new LinkedList<>();
 	private Thread assistant = new Thread(new Assistant());
 	
+	//All the callbacks this service will use:
+	
 	private Callback<TrainModelEvent> trainModelCallback = (event->{
 		synchronized(events) {
 			events.add(event);
@@ -32,25 +34,28 @@ public class GPUService extends MicroService {
 			events.notify();
 		}
 	});
-	private Callback<TickBroadcast> tickCallback = (tick->{
-		gpu.updateTime();
-		synchronized(gpu) {
-			gpu.notifyAll();
-		}
-	});
+	private Callback<TickBroadcast> tickCallback = (tick -> gpu.updateTime());
+	
 	private Callback<LastTickBroadcast> lastTickCallback = (tick -> {
 		this.terminate();
 		synchronized (gpu.getLock()) {
 			gpu.getLock().notifyAll();
 		}
 	});
+	 
+	public GPUService(String name, GPU _gpu) {
+	        super(name+"Svc");
+	        gpu = _gpu;
+	        initialize();
+    }
 	
 	private void trainNewModel(TrainModelEvent event) {
 		gpu.sendFirstChunk();
 		while(event.getModel().getStatus() != Model.Status.Trained&!terminated) {
 			if(gpu.getVRAMSize() == 0)
 				waitForProcessedData();
-			gpu.trainProcessedData();
+			if(!terminated)
+				gpu.trainProcessedData();
 		}
 		if(!terminated) {
 			complete(event, event.getModel());
@@ -74,10 +79,6 @@ public class GPUService extends MicroService {
 		MessageBusImpl.getInstance().complete(e, m);
 	}
 	
-    public GPUService(String name, GPU _gpu) {
-        super(name+"Svc");
-        gpu = _gpu;
-    }
     
 
     @Override
@@ -97,7 +98,7 @@ public class GPUService extends MicroService {
     			while(events.isEmpty()) {
 	    			synchronized (events) {
 						try {
-							events.wait();
+							events.wait();//Will be notified when GPUService's callback will add to events
 						} catch (InterruptedException e1) {}
 					}
 	    		}
@@ -108,13 +109,15 @@ public class GPUService extends MicroService {
 	    				break;
 	    			}
 	    		}
-	    		if(next!=null) {
-	    			testModel((TestModelEvent)next);
-	    			events.remove(next);
-	    		}
-	    		else {
-	    			next = events.remove();
-	    			trainNewModel((TrainModelEvent)next);
+		    	if(!terminated) {
+	    			if(next!=null) {
+		    			testModel((TestModelEvent)next);
+		    			events.remove(next);
+		    		}
+		    		else {
+		    			next = events.remove();
+		    			trainNewModel((TrainModelEvent)next);
+		    		}
 	    		}
     		}
     	}
