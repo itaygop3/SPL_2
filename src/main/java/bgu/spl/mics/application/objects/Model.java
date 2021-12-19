@@ -65,5 +65,10 @@ public class Model {
 	public void setResult(Result _result) {
 		result = _result;
 	}
+	
+	public String toString() {
+		String string = "name: "+name+"   status: "+status.toString()+"   result: "+result.toString()+"\n";
+		return string;
+	}
 
 }

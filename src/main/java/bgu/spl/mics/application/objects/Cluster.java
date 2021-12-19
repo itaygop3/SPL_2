@@ -33,8 +33,11 @@ public class Cluster {
 	}
 	
 	public void sendToProcess(List<DataBatch> data, GPU sender) {
-		for(int i = 0 ; i < data.size() ; i++) 
+		System.out.println(data.size()+" batch was sent to process from "+sender.getName());
+		int size = data.size();
+		for(int i = 0 ; i < size ; i++) {
 			sendToProcess(data.remove(0), sender);
+		}
 	}
 	
 	public void addToList(GPU gpu) {
@@ -63,9 +66,13 @@ public class Cluster {
 	public void sendToProcess(DataBatch data, GPU sender) {
 		map.putIfAbsent(data.getData(), sender);
 		CPU next = cpus.get(0);
+		System.out.println("sending data");
 		next.insertData(data);
+		System.out.println("sent to cpu");
 		cpus.remove(next);
+		System.out.println(cpus.size());
 		cpus.add(next);
+		System.out.println(cpus.size());
 	}
 	
 	//There is always a free spot because a batch was sent to process only if gpu has an open spot

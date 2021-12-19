@@ -3,6 +3,7 @@ package src.main.java.bgu.spl.mics.application.services;
 import src.main.java.bgu.spl.mics.MessageBusImpl;
 import src.main.java.bgu.spl.mics.MicroService;
 import src.main.java.bgu.spl.mics.application.CRMSRunner;
+import src.main.java.bgu.spl.mics.application.messages.FirstTickBroadcast;
 import src.main.java.bgu.spl.mics.application.messages.LastTickBroadcast;
 import src.main.java.bgu.spl.mics.application.messages.TickBroadcast;
 
@@ -26,27 +27,37 @@ public class TimeService extends MicroService{
 	private Timer timer = new Timer();
 	
 	public TimeService(int _tickTime, int finalTime) {
-		super("Change_This_Name");
+		super("timeService");
 		finalTick = finalTime;
+		tickTime = _tickTime;
 	}
 	
 	private void sentTick() {
-		timer.schedule(new TimerTask() {
+		TimerTask task =  new TimerTask() {
 			public void run() {
-				MessageBusImpl.getInstance().sendBroadcast(new TickBroadcast());
-				curTick++;
+				if(curTick == 0) {
+					MessageBusImpl.getInstance().sendBroadcast(new FirstTickBroadcast());
+					curTick++;
+					System.out.println("first tick: "+FirstTickBroadcast.class);
+				}
+				if (curTick < finalTick&curTick!=0) {
+                    MessageBusImpl.getInstance().sendBroadcast(new TickBroadcast());
+//                    System.out.println("tick number: "+curTick);
+                    curTick++;
+                } 
+				else {
+                    MessageBusImpl.getInstance().sendBroadcast(new LastTickBroadcast());
+                    System.out.println("last tick: "+ curTick);
+                    timer.cancel();
+                }
 			}
-		}, tickTime);
+		};
+		timer.schedule(task,0, tickTime);
 	}
 
 	@Override
 	public void initialize() {
-		while(curTick<finalTick-1)
-			sentTick();
-		//Last tick should be LastTickEvent
-		timer.schedule(new TimerTask() {
-			public void run() {MessageBusImpl.getInstance().sendBroadcast(new LastTickBroadcast());}
-		}, CRMSRunner.tickTime);
+		MessageBusImpl.getInstance().register(this);
+		sentTick();
 	}
-
 }

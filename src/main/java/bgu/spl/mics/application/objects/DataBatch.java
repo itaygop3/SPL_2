@@ -9,7 +9,6 @@ public class DataBatch {
 	
 	private Data data;
 	private int start_index;
-	private int timeTicks = 0;
 	private int processedAt = 0;//The ticks number when this batch was fully processed
 	
 	public DataBatch(Data data, int startIndex) {
@@ -32,11 +31,11 @@ public class DataBatch {
 	public int getIndex() {
 		return start_index;
 	}
-	public int getTimeTicks() {
-		return timeTicks;
-	}
-	
-	public void incrementTimeTicks() {
-		timeTicks++;
-	}
+//	public int getTimeTicks() {
+//		return timeTicks;
+//	}
+//	
+//	public void incrementTimeTicks() {
+//		timeTicks++;
+//	}
 }

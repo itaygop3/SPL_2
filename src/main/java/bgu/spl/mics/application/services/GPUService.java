@@ -37,9 +37,13 @@ public class GPUService extends MicroService {
 	private Callback<TickBroadcast> tickCallback = (tick -> gpu.updateTime());
 	
 	private Callback<LastTickBroadcast> lastTickCallback = (tick -> {
+		System.out.println("got last tick");
 		this.terminate();
 		synchronized (gpu.getLock()) {
 			gpu.getLock().notifyAll();
+		}
+		synchronized(events) {
+			events.notifyAll();
 		}
 	});
 	 
@@ -50,7 +54,10 @@ public class GPUService extends MicroService {
     }
 	
 	private void trainNewModel(TrainModelEvent event) {
+		System.out.println("start training "+event.getModel().getName());
+		gpu.setModel(event.getModel());
 		gpu.sendFirstChunk();
+		System.out.println("sent first chunk of: "+event.getModel().getName());
 		while(event.getModel().getStatus() != Model.Status.Trained&!terminated) {
 			if(gpu.getVRAMSize() == 0)
 				waitForProcessedData();
@@ -67,10 +74,12 @@ public class GPUService extends MicroService {
 		while(gpu.getVRAMSize() == 0&!terminated) {
 			synchronized(gpu.getLock()) {
 				try {
+					System.out.println(gpu.getName()+" is waiting for processed data");
 					gpu.getLock().wait();
 				}catch(InterruptedException e) {}
 			}
 		}
+		System.out.println(gpu.getName()+"'s VRAM isn't empty");
 	}
 	
 	public void testModel(TestModelEvent e) {
@@ -95,19 +104,25 @@ public class GPUService extends MicroService {
     class Assistant implements Runnable{
     	public void run() {
 	    	while(!terminated) {
-    			while(events.isEmpty()) {
+    			while(events.isEmpty()&!terminated) {
+    				System.out.println(gpu.getName()+" empty");
 	    			synchronized (events) {
 						try {
 							events.wait();//Will be notified when GPUService's callback will add to events
-						} catch (InterruptedException e1) {}
+						} catch (InterruptedException e1) {System.out.println(gpu.getName()+" was notified");}
 					}
 	    		}
 	    		Event<Model> next = null;
-	    		for(Event<Model> e : events) {
-	    			if(e instanceof TestModelEvent) {
-	    				next = e;
-	    				break;
-	    			}
+	    		if(terminated)
+	    			System.out.println("terminated");
+	    		else {
+    				System.out.println(gpu.getName()+" is not empty anymore, it has "+events.peek());
+		    		for(Event<Model> e : events) {
+		    			if(e instanceof TestModelEvent) {
+		    				next = e;
+		    				break;
+		    			}
+		    		}
 	    		}
 		    	if(!terminated) {
 	    			if(next!=null) {
@@ -116,6 +131,7 @@ public class GPUService extends MicroService {
 		    		}
 		    		else {
 		    			next = events.remove();
+		    			System.out.println("train model event in: "+gpu.getName());
 		    			trainNewModel((TrainModelEvent)next);
 		    		}
 	    		}

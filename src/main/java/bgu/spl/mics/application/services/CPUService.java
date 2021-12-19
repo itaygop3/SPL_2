@@ -23,8 +23,8 @@ public class CPUService extends MicroService {
 
     //this callback handles getting a tickBroadcast and updates the cpu accordingly.
     private Callback<TickBroadcast> tickUpdateCallBack= k->{
-        cpu.getCurrentTicksNumber().set(++time);
-        cpu.process();
+    	cpu.getCurrentTicksNumber().set(++time);
+    	cpu.process();
     };
     
     private Callback<LastTickBroadcast> lastTickCallback = k ->{
@@ -36,5 +36,6 @@ public class CPUService extends MicroService {
         MessageBusImpl.getInstance().register(this);
         subscribeBroadcast(TickBroadcast.class,tickUpdateCallBack);
         subscribeBroadcast(LastTickBroadcast.class,lastTickCallback);
+        Cluster.getInstance().addToList(cpu);
     }
 }

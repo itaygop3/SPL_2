@@ -5,6 +5,8 @@ package src.main.java.bgu.spl.mics;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+//TODO delete this
+import src.main.java.bgu.spl.mics.application.messages.*;
 import java.util.*;
 
 /**
@@ -93,12 +95,18 @@ public class MessageBusImpl implements MessageBus {
 
 	@Override
 	public void sendBroadcast(Broadcast b) {
-		if(!subscribeLog.containsKey(b.getClass()))
+		if(!subscribeLog.containsKey(b.getClass())) {
+			System.out.println("no one is subscribed to broadcast");
 			return;
+		}
 		List<MicroService> subscribed = subscribeLog.get(b.getClass());
 		synchronized(subscribed) {
-			for(MicroService m : subscribed)
+			for(MicroService m : subscribed) {
 				registered.get(m).messeges.add(b);
+				synchronized(m) {
+					m.notifyAll();
+				}
+			}
 		}
 	}
 
@@ -151,7 +159,8 @@ public class MessageBusImpl implements MessageBus {
 
 	@Override
 	public Message awaitMessage(MicroService m) throws InterruptedException {
-		Queue<Message> queue = registered.get(m).messeges;
+		Queue<Message> queue = null;
+		queue = registered.get(m).messeges;
 		while(queue.isEmpty()&!m.terminated) {
 			synchronized(m) {
 				try{

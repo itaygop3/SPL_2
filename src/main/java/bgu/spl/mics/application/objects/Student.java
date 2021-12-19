@@ -27,16 +27,16 @@ public class Student {
     	name = _name;
     	department = _department;
     	status = _status;
-    	modelNames = modelNames();
+    	modelNames = null;
     	modelsToTrain = models;
     	service = new StudentService(name, this);
     }
     
-    private Set<String> modelNames(){
+    public void modelNames(){
     	Set<String> names = new HashSet<String>();
     	for(Model m : modelsToTrain)
     		names.add(m.getName());
-    	return names;
+    	modelNames = names;
     }
     
     public void read(LinkedList<String> pulishedModels) {

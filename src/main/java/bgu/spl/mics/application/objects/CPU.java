@@ -78,14 +78,15 @@ public class CPU {
     		return;
         
         DataBatch dataBatch=data.peek();
-        dataBatch.setProcessedAt(dataBatch.getTimeTicks()+1);//process when gets time tick
+        dataBatch.setProcessedAt(dataBatch.ProcessedAt()+1);//process when gets time tick
         int t=timeToWait();
-        if (dataBatch.getTimeTicks()>=t) {//checks if t ticks have passed since start of process.
+        if (dataBatch.ProcessedAt()>=t) {//checks if t ticks have passed since start of process.
             data.remove();
         	dataBatch.setProcessedAt(currentTicksNumber.get());
         	cluster.prioritize(this);
             cluster.sendToTrain(dataBatch); //sends the processed data to the cluster
-        	cluster.updateCPUTicks(t);
+        	System.out.println("cpu finished with the batch and is sending back to GPU");
+            cluster.updateCPUTicks(t);
         }
 
     }

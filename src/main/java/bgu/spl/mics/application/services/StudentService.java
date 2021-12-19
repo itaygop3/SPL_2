@@ -34,7 +34,10 @@ public class StudentService extends MicroService {
         	synchronized(task.f) {task.f.notifyAll();}
         	});
         subscribeBroadcast(PublishConferenceBroadcast.class, k -> student.read(k.getSuccessfulModels()));
-        assistant.start();
+        subscribeBroadcast(FirstTickBroadcast.class, k-> {
+        	assistant.start();
+        	student.modelNames();
+        	});
     }
     
     class Assistant implements Runnable{

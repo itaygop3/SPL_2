@@ -100,15 +100,19 @@ public class GPU {
      * @param num The number of data batches to send to the cluster
      */
     public void sendData(int num) {
-    	if(num == 0 | data.isEmpty())
+    	if(num == 0 | data.isEmpty()) {
+    		System.out.println(name+" didnt send data");
     		return;
+    	}
     	if(num == 1) {
     		cluster.sendToProcess(data.remove(0), this);
+    		System.out.println(name+"sent one batch to process");
     		return;
     	}
     	List<DataBatch> delivery = new LinkedList<>();
-    	for(int i = 0 ; i < num & !data.isEmpty() ; i++)
-    		delivery.add(data.remove(0));
+    	for(int i = 0 ; i < num & !data.isEmpty() ; i++) {
+    		delivery.add(data.remove(data.size()-1));
+    	}
     	cluster.sendToProcess(delivery, this);
     }
     
@@ -126,9 +130,13 @@ public class GPU {
      * @return false if {@code VRAM} is full
      */
     public boolean reciveProcessedData(DataBatch db) {
-    	if(isFull())
+    	if(isFull()) {
+    		System.out.println("is full");
     		return false;
+    	}
+    	System.out.println("adding to VRAM");
     	VRAM.add(db);
+    	System.out.println("added to VRAM");
     	synchronized(lock) {
     		lock.notifyAll();
     	}
